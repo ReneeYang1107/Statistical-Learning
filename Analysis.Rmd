@@ -1,0 +1,301 @@
+---
+editor_options:
+  chunk_output_type: inline
+output:
+  pdf_document: default
+  word_document: default
+---
+
+
+
+## Enter Your Name Here, or "Anonymous" if you want to remain anonymous..
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+I pledge on my honor that I have not given or received any unauthorized assistance on this assignment/examination. I further pledge that I have not copied any material from a book, article, the Internet or any other source except where I have expressly cited the source.
+
+By filling out the following fields, you are signing this pledge.  No assignment will get credit without being pledged.
+
+Name:XXX
+
+CWID: XXXXXX
+
+Date: XXXXXX
+
+# Instructions
+
+
+When you have completed the assignment, knit the document into a PDF file, and upload _both_ the .pdf and .Rmd files to Canvas.
+
+Note that you must have LaTeX installed in order to knit the equations below.  If you do not have it installed, simply delete the questions below.
+```{r}
+CWID = 10436515 #Place here your Campus wide ID number, this will personalize
+#your results, but still maintain the reproduceable nature of using seeds.
+#If you ever need to reset the seed in this assignment, use this as your seed
+#Papers that use -1 as this CWID variable will earn 0's so make sure you change
+#this value before you submit your work.
+personal = CWID %% 10000
+set.seed(personal)
+```
+
+# Question 1:
+In this assignment, you will be required to find a set of data to run regression on. This data set should be financial in nature, and of a type that will work with the models we have discussed this semester (hint: we didn't look at time series)  You may not use any of the data sets in the ISLR package that we have been looking at all semester.  Your data set that you choose should have both qualitative and quantitative variables. (or has variables that you can transform)
+
+Provide a description of the data below, where you obtained it, what the variable names are and what it is describing.
+```{r}
+#Answer: 
+#In this project, I am concern about the impact of influencial 
+#factors on return of gold price and return of sp500, 
+#in which I choose Date, sp500 from "Yahoo Finance" 
+#as well as choose gold price, cpi, 3 month treasury bill, 
+#us dollar index, crude oil price, inflation from "federal reserve". 
+#Also, I compute the return of gold price, return of sp500, change of cpi, 
+#change of 3 month treasury bill, return of us dollar index, return of crude oil, 
+#change of inflation, which are the influential factors.
+#For the dataset, there're 15 variables and 405 entries.
+#Date: The date when the data generated
+#goldprice: price of gold
+#sp500:Standard & Poor's 500, which is the record of stock market in the U.S.
+#cpi: The Consumer Price Index is average change over time in the prices paid by consumers
+#X3monthtreasurybill:A short-term U.S.government debt obligation 
+#usdollarindex: It is used to measure the value of the dollar           
+#crudeoilprice: The price of crude oil              
+#inflation: It is a sustained increase in the general price level of goods and services
+#returnofgoldprice, returnofsp500, changeofcpi, changeof3monthtreasurybill, 
+#returnofusdollarindex, returnofcrudeoil, changeofinflation: 
+#I calculate them by computing the difference between day and its previous day.
+```
+
+         
+# Question 2:
+Pick a quantitative variable and fit at least four different models in order to predict that variable using the other predictors.  Determine which of the models is the best fit.  You will need to provide strong reasons as to why the particular model you chose is the best one.  You will need to confirm the model you have selected provides the best fit and that you have obtained the best version of that particular model (i.e. subset selection or validation for example).  You need to convince the grader that you have chosen the best model.
+```{r}
+mydata=read.table("/Users/reneeyang/Desktop/mydata.csv",
+               header = TRUE,
+               sep = ",")
+mydata.sampling=sample(1:nrow(mydata),nrow(mydata)/2)
+mydata_train=mydata[mydata.sampling,]
+mydata_test=mydata[-mydata.sampling,]
+colnames(mydata_train)
+```
+
+
+```{r}
+#Here I pick return of gold price to predict
+#regsubset subset selection 
+library(leaps)
+reg.fit=regsubsets(returnofgoldprice~returnofsp500+changeofcpi+changeof3monthtreasurybill
+                   +returnofusdollarindex+returnofcrudeoil+changeofinflation,
+                   data=mydata_train,method="forward",nvmax=6)
+t(summary(reg.fit)$which)
+cp=summary(reg.fit)$cp
+i=which.min(cp)
+i
+plot(cp,type='b',col="blue",xlab="Number of Predictors",ylab=expression("Mallows C"[P]))
+points(i,cp[i],pch=19,col="red")
+#with Cp we pick the 3-variables model
+```
+
+
+```{r}
+pairs( ~ returnofgoldprice+returnofusdollarindex+returnofsp500+changeofcpi, mydata)
+```
+
+
+```{r}
+library("tree")
+library("randomForest")
+set.seed(personal)
+
+#linear regression
+lm.fit = lm(returnofgoldprice~returnofusdollarindex+returnofsp500+changeofcpi,    
+            data=mydata_train)
+summary(lm.fit)
+lm.pred <- predict(lm.fit, data = mydata_test)
+mean((lm.pred -mydata_test$returnofgoldprice)^2)
+
+
+#Random Forest
+bag.car=randomForest(returnofgoldprice ~ returnofusdollarindex+returnofsp500+changeofcpi,
+                     data=mydata_train,mtry=10,ntree=1000,importance=TRUE)
+bag.pred=predict(bag.car,mydata_test)
+mean((mydata_test$returnofgoldprice-bag.pred)^2)
+
+
+#Decision Tree
+reg.tree=tree(returnofgoldprice ~ returnofusdollarindex+returnofsp500+changeofcpi,
+                     data=mydata_train)
+pred.tree=predict(reg.tree,mydata_test)
+mean((mydata_test$returnofgoldprice-pred.tree)^2)
+
+
+#K-Nearest Neighbors
+library(class)
+table <- mydata[,c('returnofgoldprice','returnofusdollarindex','returnofsp500',
+                      'changeofcpi')]
+knn.pred=knn(table[mydata.sampling,],table[-mydata.sampling,],mydata_train$returnofgoldprice
+             ,k=3)
+knn.pred = as.numeric(as.character(knn.pred))
+mean((knn.pred-mydata_test$returnofgoldprice)^2)
+
+#Conclusion: From the result, we can know that KNN with the minimal MSE is the best fit model.
+```
+
+
+
+#Question 3:
+
+Do the same approach as in question 2, but this time for a qualitative
+
+
+```{r}
+#In this transforming part, I select return of sp500 to predict. 
+#And I set those larger or equals to than 0 as "up", while others smaller than 0 as "down".
+returnofgoldprice = diff(mydata$returnofgoldprice)
+returnofsp500 = diff(mydata$returnofsp500)
+changeofcpi = diff(mydata$changeofcpi)
+changeof3monthtreasurybill = diff(mydata$changeof3monthtreasurybill)
+returnofusdollarindex = diff(mydata$returnofusdollarindex)
+returnofcrudeoil = diff(mydata$returnofcrudeoil)
+changeofinflation = diff(mydata$changeofinflation)
+returnofsp500[returnofsp500>=0] = 1
+returnofsp500[returnofsp500<0] = 0
+mydata.diff = data.frame(returnofgoldprice, returnofsp500, changeofcpi,          
+                         changeof3monthtreasurybill,returnofusdollarindex,returnofcrudeoil,
+                         changeofinflation)
+mydata.sampling1 = sample(1:nrow(mydata.diff),nrow(mydata.diff)/2)
+mydata_train1 = mydata.diff[mydata.sampling1,]
+mydata_test1 = mydata.diff[-mydata.sampling1,]
+```
+
+
+```{r}
+#Here I pick return of sp500 to predict
+#regsubset subset selection 
+library(leaps)
+set.seed(personal)
+reg.fit=regsubsets(returnofsp500~returnofgoldprice+changeofcpi+changeof3monthtreasurybill
+                   +returnofusdollarindex+returnofcrudeoil+changeofinflation,
+                   data=mydata_train1,method="forward",nvmax=6)
+t(summary(reg.fit)$which)
+cp=summary(reg.fit)$cp
+i=which.min(cp)
+i
+plot(cp,type='b',col="blue",xlab="Number of Predictors",ylab=expression("Mallows C"[P]))
+points(i,cp[i],pch=19,col="red")
+```
+
+
+```{r}
+pairs( ~ returnofsp500 + returnofgoldprice + returnofusdollarindex, mydata.diff)
+```
+
+```{r}
+library("tree")
+library("randomForest")
+set.seed(personal)
+
+#linear regression
+lm.fit = glm(returnofsp500 ~ returnofusdollarindex+returnofgoldprice, family = binomial,   
+            data=mydata_train1)
+summary(lm.fit)
+lm.pred <- predict(lm.fit, data = mydata_test1)
+mean((lm.pred -mydata_test1$returnofsp500)^2)
+
+
+#Random Forest
+bag.car=randomForest(returnofsp500 ~ returnofusdollarindex+returnofgoldprice,
+                     data=mydata_train1,mtry=10,ntree=1000,importance=TRUE)
+bag.pred=predict(bag.car,mydata_test1)
+mean((mydata_test$returnofsp500-bag.pred)^2)
+
+#Decision Tree
+reg.tree=tree(returnofsp500 ~ returnofusdollarindex+returnofgoldprice,
+                     data=mydata_train1)
+pred.tree=predict(reg.tree,mydata_test1)
+mean((mydata_test1$returnofsp500-pred.tree)^2)
+
+
+#K-Nearest Neighbors
+library(class)
+table1 <- mydata.diff[,c('returnofsp500', 'returnofgoldprice','returnofusdollarindex')]
+knn.pred=knn(table1[mydata.sampling1,],table1[-mydata.sampling1,],mydata_train1$returnofgoldprice, k=3)
+knn.pred = as.numeric(as.character(knn.pred))
+mean((knn.pred-mydata_test1$returnofsp500)^2)
+
+#Conclusion: From the result, we can know that Random Forest with the minimal MSE is the best fit model. 
+```
+
+
+#Question 4:
+(Based on ISLR Chapter 9 #7) In this problem, you will use support vector approaches in order to
+predict whether a given car gets high or low gas mileage based on the
+Auto data set.
+
+##(a)
+Create a binary variable that takes on a 1 for cars with gas mileage above the median, and a 0 for cars with gas mileage below the median.
+```{r}
+library("dplyr")
+library("ISLR")
+set.seed(personal)
+var <- ifelse(Auto$mpg > median(Auto$mpg), 1, 0)
+Auto$mpglevel <- as.factor(var)
+```
+
+##(b)
+Fit a support vector classifier to the data with various values of cost, in order to predict whether a car gets high or low gas mileage. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+
+```{r}
+library(e1071)
+set.seed(personal)
+tune_linear <- tune(svm, mpglevel ~., data = Auto, kernel = "linear", 
+                      ranges = list(cost = c(0.01,0.1,1,5,10,100)))
+summary(tune_linear)  
+#Conclusion: When the cost equals to 0.01, the error reaches the lowest level.
+```
+
+
+
+##(c)
+Now repeat for (b), this time using SVMs with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+```{r}
+#radial
+tune_radial <- tune(svm, mpglevel ~., data = Auto, kernel = "radial", 
+                      ranges = list(cost = c(0.001,0.01,0.1,1,5,10,100),
+                      gamma = c(0.001,0.01,0.1,1,5,10,100)))
+summary(tune_radial) 
+
+#polynomial
+tune_polynomial <- tune(svm, mpglevel ~., data = Auto, kernel = "polynomial", 
+                      ranges = list(cost = c(0.001,0.01, 0.1,1,5,10,100,1000), 
+                                    degree = c(2,3,4,5,6)))
+summary(tune_polynomial) 
+
+#Conclusion: For radial kernel, when the cost equals to 5 and gamma equals to 0.001, 
+#the error will get the lowest level.
+#For polynomial kernel, when the cost equals to 1000 and degree equals to 2, 
+#the error will get the lowest level.
+```
+
+
+
+##(d)
+Make some plots to back up your assertions in (b) and (c). Hint: In the lab, we used the plot() function for svm objects only in cases with p=2 When p>2,you can use the plot() function to create plots displaying pairs of variables at a time. Essentially, instead of typing plot(svmfit , dat) where svmfit contains your fitted model and dat is a data frame containing your data, you can type plot(svmfit , dat, x1~x4) in order to plot just the first and fourth variables. However, you must replace x1 and x
+4 with the correct variable names. To find out more, type ?plot.svm.
+
+```{r}
+svm.linear <- svm(mpglevel ~ ., data = Auto, kernel = "linear", cost = 0.01)
+svm.poly <- svm(mpglevel ~ ., data = Auto, kernel = "polynomial", cost = 1000, degree = 2)
+svm.radial <- svm(mpglevel ~ ., data = Auto, kernel = "radial", cost = 5, gamma = 0.001)
+plotpairs = function(fit) {
+    for (name in names(Auto)[!(names(Auto) %in% c("mpg", "mpglevel", "name"))]) {
+        plot(fit, Auto, as.formula(paste("mpg~", name, sep = "")))
+    }
+}
+plotpairs(svm.linear)
+plotpairs(svm.poly)
+plotpairs(svm.radial)
+
+```
+
+
